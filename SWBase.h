@@ -4,7 +4,7 @@
 class SWBase {
 public:
 	SWBase(int threshold);
-	SWBase() {};
+	SWBase();
 	virtual ~SWBase() {};
 	int max_score();
 	int max_position();
