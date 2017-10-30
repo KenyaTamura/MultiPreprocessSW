@@ -7,6 +7,13 @@ SWBase::SWBase(int threshold) :
 	mMaxScore{ -1 },
 	mMaxPos{ -1 } {}
 
+SWBase::SWBase() :
+	mScore{ nullptr },
+	mThreshold{ 0 },
+	mSize{ 0 },
+	mMaxScore{ -1 },
+	mMaxPos{ -1 } {}
+
 int SWBase::max_score() {
 	if (mMaxScore == -1) {
 		search_max();
