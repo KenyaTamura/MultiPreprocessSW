@@ -6,7 +6,8 @@
 #include<iostream>
 #include<iomanip>
 
-#include"SimpleSW.h"
+#include"PreprocessSWGPU.h"
+#include"PreprocessBase.h"
 #include"Data.h"
 #include"Cost.h"
 
@@ -35,8 +36,8 @@ enum{
 
 using namespace std;
 
-SimpleSW::SimpleSW(const Data& db, const Data& q, int threshold){
-	cout << "Simple SW algorithm start" << endl;
+PreprocessSWGPU::PreprocessSWGPU(const Data& db, const Data& q, const PreprocessBase& pre, int threshold){
+	cout << "Preprocess SW GPU ver start" << endl;
 	// Sieze check
 	if(q.size() > 1024 || db.size() > 1024 * 1024 * 1024){
 		cout << "Too large size" << endl;
@@ -60,12 +61,12 @@ SimpleSW::SimpleSW(const Data& db, const Data& q, int threshold){
 	gain = cost.Begin;
 	cudaMemcpyToSymbol(gcBegin, &gain, sizeof(int));
 	// Dynamic Programing part by call_DP
-	call_DP(db, q);
+	call_DP(db, q, pre);
 	cout << "Max score is " << max_score() << ", max position is " << max_position() << endl; 
-	cout << "Simple SW algorithm end" << endl;
+	cout << "PreprocessSW SW GPU ver end" << endl;
 }
 
-SimpleSW::~SimpleSW(){
+PreprocessSWGPU::~PreprocessSWGPU(){
 	if(mScore){
 		delete[] mScore;
 		mScore = nullptr;
@@ -74,9 +75,13 @@ SimpleSW::~SimpleSW(){
 
 // Implementation 
 // No traceback
-__global__ void DP(char* dT_seq, int* dScore){
+__global__ void DP_pre(char* dT_seq, int* dRange, int* dScore){
 	// ThreadId = q point
 	int id = threadIdx.x;
+	// BlockId is each start point
+	int bId = blockIdx.x;
+	int start = dRange[bId * 2];
+	int end = dRange[bId * 2 + 1] + gcP_size;
 	// The acid in this thread
 	char p = gcP_seq[id];
 	// p-1 row line's value
@@ -95,11 +100,10 @@ __global__ void DP(char* dT_seq, int* dScore){
 	Ep_1[id] = 0;
 	// Similar score
 	int sim = 0;
-	int point = id * gcT_size - id;
 	// Culcurate elements
-	for(int t = -id; t < gcT_size; ++t){
+	for(int t = start - id; t < end + 1; ++t){
 		// Control culcurate order
-		if(t<0){}
+		if(t<start){}
 		// Get similar score
 		else{
 			// Compare acids
@@ -160,14 +164,13 @@ __global__ void DP(char* dT_seq, int* dScore){
 				dScore[t] = Ht_1;
 			}
 		} 
-		++point;
 		__syncthreads();
 		// for end
 	}
 }
 
 // With traceback
-__global__ void DPwith(char* dT_seq, char* dTrace, int start, int length){
+__global__ void DPwith_pre(char* dT_seq, char* dTrace, int start, int length){
 	// ThreadId = q point
 	int id = threadIdx.x;
 	// The acid in this thread
@@ -261,7 +264,7 @@ __global__ void DPwith(char* dT_seq, char* dTrace, int start, int length){
 }
 
 // Provisional
-void SimpleSW::call_DP(const Data& db, const Data& q){
+void PreprocessSWGPU::call_DP(const Data& db, const Data& q, const PreprocessBase& pre){
 	// Set db
 	char* dT_seq;
 	cudaMalloc((void**)&dT_seq, sizeof(char)*db.size());
@@ -272,8 +275,13 @@ void SimpleSW::call_DP(const Data& db, const Data& q){
 	int* init0 = new int[db.size()];
 	for(int i=0;i<db.size();++i){init0[i]=0;}
 	cudaMemcpy(dScore, init0, sizeof(int)*db.size(), cudaMemcpyHostToDevice);
+	// Get block data
+	int blockNum = pre.block();
+	int* dRange = new int[blockNum];
+	cudaMalloc((void**)&dRange, sizeof(int)*blockNum*2);
+	cudaMemcpy(dRange, pre.getAll(), sizeof(int)*blockNum*2, cudaMemcpyHostToDevice);
 	// Main process
-	DP<<<1,q.size()>>>(dT_seq, dScore);	
+	DP_pre<<<blockNum, q.size()>>>(dT_seq, dRange, dScore);	
 	// Score and point copy
 	mScore = new int[db.size()];
 	cudaMemcpy(mScore, dScore, sizeof(int)*db.size(), cudaMemcpyDeviceToHost);
@@ -281,11 +289,12 @@ void SimpleSW::call_DP(const Data& db, const Data& q){
 //	checkScore(db, q);
 	delete[] init0;
 	cudaFree(dT_seq);
+	cudaFree(dRange);
 	cudaFree(dScore);
 }
 
 // score -> 0~16 : 17~31 = score : point of q
-void SimpleSW::checkScore(const Data& db, const Data& q){
+void PreprocessSWGPU::checkScore(const Data& db, const Data& q){
 	// get the max score
 	int max = max_score();
 	int x = max_position();
@@ -299,7 +308,7 @@ void SimpleSW::checkScore(const Data& db, const Data& q){
 		int length = q.size() * 2;	// Enough
 		char* dTrace;
 		cudaMalloc((void**)&dTrace, sizeof(char)*length*q.size());
-		DPwith<<<1,q.size()>>>(dT_seq, dTrace, x - length + 1, length);
+		DPwith_pre<<<1,q.size()>>>(dT_seq, dTrace, x - length + 1, length);
 		// Direction copy
 		char* direction = new char[length*q.size()];
 		cudaMemcpy(direction, dTrace, sizeof(char)*length*q.size(), cudaMemcpyDeviceToHost);	
@@ -311,7 +320,7 @@ void SimpleSW::checkScore(const Data& db, const Data& q){
 	}
 }
 
-void SimpleSW::traceback(const char* direction, const Data& db, int x, int y, int length) const{
+void PreprocessSWGPU::traceback(const char* direction, const Data& db, int x, int y, int length) const{
 	// Store the result, get enough size
 	char *ans = new char[1024 * 2];
 	// Point of result array

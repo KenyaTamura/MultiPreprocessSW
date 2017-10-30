@@ -95,7 +95,6 @@ __global__ void DP(char* dT_seq, int* dScore){
 	Ep_1[id] = 0;
 	// Similar score
 	int sim = 0;
-	int point = id * gcT_size - id;
 	// Culcurate elements
 	for(int t = -id; t < gcT_size; ++t){
 		// Control culcurate order
@@ -160,7 +159,6 @@ __global__ void DP(char* dT_seq, int* dScore){
 				dScore[t] = Ht_1;
 			}
 		} 
-		++point;
 		__syncthreads();
 		// for end
 	}

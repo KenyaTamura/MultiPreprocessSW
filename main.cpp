@@ -8,6 +8,7 @@
 #include"PreprocessBase.h"
 #include"SimpleSW.h"
 #include"PreprocessSW.h"
+#include"PreprocessSWGPU.h"
 #include"SWBase.h"
 #include"FileConverter.h"
 #include"Timer.h"
@@ -23,6 +24,7 @@ namespace {
 	string ofname_pre;
 	string type = "quad";
 	bool cmp_flag = false;
+	bool gpu_flag = true;
 }
 
 void arg_branch(int argc, char* argv[]) {
@@ -51,7 +53,10 @@ void arg_branch(int argc, char* argv[]) {
 			if (++i < argc) { type = argv[i]; }
 		}
 		if (cmp(i, "-cmp")) {
-			cmp_flag = true;	++i;
+			cmp_flag = true;
+		}
+		if (cmp(i, "-cpu")){
+			gpu_flag = false;
 		}
 	}
 }
@@ -86,6 +91,15 @@ int main(int argc, char* argv[]) {
 					Writer w;
 					w.writing_score(ofname.c_str(), sw.all_score(), db->size(), db->size() / 100);
 				}
+			}
+			else if(gpu_flag){
+				if (type_check("single")) {
+					PreprocessSWGPU(*db, *q, PreprocessSingle(*db, *q, threshold), threshold);
+				}
+				else {
+					PreprocessSWGPU(*db, *q, PreprocessQuad(*db, *q, threshold), threshold);
+				}
+
 			}
 			else {
 				if (type_check("single")) {
