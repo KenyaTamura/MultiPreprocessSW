@@ -5,7 +5,7 @@
 
 using namespace std;
 
-Data::Data(const char* fname) {
+Data::Data(const char* fname) : mData{ nullptr } {
 	ifstream ifs(fname, ios::binary);
 	if (ifs.fail()) {
 		cerr << "Not found file" << endl;
@@ -24,7 +24,9 @@ Data::Data(const char* fname) {
 }
 
 Data::~Data() {
-//	delete[] mData;
+	if(mData){
+		delete[] mData;
+	}
 }
 
 char Data::operator[](int i) const {

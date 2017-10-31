@@ -1,6 +1,6 @@
 OBJS = Data.o FileConverter.o PreprocessBase.o PreprocessSingle.o PreprocessQuad.o PreprocessSW.o SWBase.o SimpleSW.o PreprocessSWGPU.o Writer.o main.o
 BIN = a.out
-NVCC = nvcc -std=c++11 
+NVCC = nvcc -std=c++11 -O2 
 GPP = g++ -std=c++11 -O2
 
 $(BIN): $(OBJS)

@@ -65,7 +65,7 @@ int main(int argc, char* argv[]) {
 	arg_branch(argc, argv);
 	auto type_check = [&](const char* str) -> bool {return (strcmp(type.c_str(), str) == 0); };
 	Timer t;
-	if (db != nullptr && q != nullptr) {
+	if (db != nullptr && q != nullptr && db->data() != nullptr && q->data() != nullptr) {
 		// Compare execution time
 		if (cmp_flag) {
 			t.start();
