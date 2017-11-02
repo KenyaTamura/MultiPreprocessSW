@@ -31,3 +31,9 @@ void Writer::writing_score(const char* fname, const int* data, int size, int int
 		if (times == timer) { break; }
 	}
 }
+
+void Writer::writing_time(const char* fname, int time) {
+	ofstream ofs(fname, ios::out | ios::app);
+	if(!ofs) { return; }
+	ofs << time << ",";
+}
