@@ -1,15 +1,16 @@
-#include"PreprocessSingle.h"
+#include"PreprocessDouble.h"
 #include"Data.h"
 
-#include<algorithm>
 #include<iostream>
+#include<algorithm>
 
 #include"Writer.h"
 
 using namespace std;
 
 namespace {
-	constexpr int Type = 4;
+	constexpr int Double = 1;
+	constexpr int Type = 16;
 	auto convert = [](char acid) {
 		if (acid == 'A') return 0;
 		else if (acid == 'C') return 1;
@@ -19,32 +20,17 @@ namespace {
 	};
 }
 
-PreprocessSingle::PreprocessSingle(const Data& txt, const Data& ptn, const int threshold) {
-	process(txt, ptn, threshold, "Single");
+PreprocessDouble::PreprocessDouble(const Data& txt, const Data& ptn, const int threshold) {
+	process(txt, ptn, threshold, "Double");
 }
 
-PreprocessSingle::PreprocessSingle(const Data& txt, const Data& ptn, const char* fname) {
-	if (txt.size() < ptn.size()) {
-		cout << "Reverse txt and ptn" << endl;
-		return;
-	}
-	cout << "PreprocessSingle start" << endl;
-	// The search range of origin
-	int* score = new int[txt.size() - ptn.size()];
-	// Check the range
-	check_score(txt, ptn, score);
-	Writer w;
-	w.writing_score(fname, score, txt.size() - ptn.size(), txt.size() / 100, 100);
-	cout << "PreprocessSingle end" << endl;
-}
-
-PreprocessSingle::~PreprocessSingle() {
+PreprocessDouble::~PreprocessDouble() {
 	if (mRange) {
 		delete[] mRange;
 	}
 }
 
-void PreprocessSingle::check_score(const Data& txt, const Data& ptn, int* range) {
+void PreprocessDouble::check_score(const Data& txt, const Data& ptn, int* range) {
 	// Get hash, the length is ptn size
 	int hashT[Type]{ 0 };
 	int hashP[Type]{ 0 };
@@ -53,17 +39,17 @@ void PreprocessSingle::check_score(const Data& txt, const Data& ptn, int* range)
 	int size = txt.size() - ptn.size();
 	int psize = ptn.size();
 	auto sum = [&](int i) {
-		return convert(txt[i]);
+		return (convert(txt[i]) << 2) + convert(txt[i + 1]);
 	};
 	for (int i = 0; i < size; ++i) {
 		range[i] = get_score(hashT, hashP);
 		// Minus i and plus i + ptn.size()
 		--hashT[sum(i)];
-		++hashT[sum(i + psize)];
+		++hashT[sum(i + psize - Double)];
 	}
 }
 
-void PreprocessSingle::get_range(const Data& txt, const Data& ptn, const int threshold) {
+void PreprocessDouble::get_range(const Data& txt, const Data& ptn, const int threshold) {
 	// Buffer
 	int* buffer = new int[txt.size() / ptn.size()];
 	// Get hash, the length is ptn size
@@ -91,8 +77,9 @@ void PreprocessSingle::get_range(const Data& txt, const Data& ptn, const int thr
 			}
 		}
 		// Minus hash i~i+1 and plus hash i + ptn.size()-1 ~ i+ptn.size()
-		int dec = convert(txt[i]);
-		int inc = convert(txt[i + psize]);
+		int dec = (convert(txt[i]) << 2) + convert(txt[i + 1]);
+		int offset = i + psize;
+		int inc = (convert(txt[offset - 1]) << 2) + convert(txt[offset]);
 		if (hashT[dec] <= hashP[dec]) {
 			--score;
 		}
@@ -113,18 +100,20 @@ void PreprocessSingle::get_range(const Data& txt, const Data& ptn, const int thr
 	delete[] buffer;
 }
 
-void PreprocessSingle::get_hash(const Data& data, int size, int* hash) const {
-	for (int i = 0; i < size; ++i) {
-		++hash[convert(data[i])];
-	}
-}
-
-int PreprocessSingle::get_score(const int* hash1, const int* hash2) const {
+int PreprocessDouble::get_score(const int* hash1, const int* hash2) const {
 	int score = 0;
 	for (int i = 0; i < Type; ++i) {
 		score += min(hash1[i], hash2[i]);
 	}
 	if (score == 0) { return 0; }
-	else { return score; }
+	else { return score + Double; }
 }
 
+void PreprocessDouble::get_hash(const Data& data, int size, int* hash) const {
+	for (int i = 0; i < size - Double; ++i) {
+		++hash[(convert(data[i]) << 2) + convert(data[i + 1])];
+	}
+	/*for (int i = 0; i < Type; ++i) {
+	cout << static_cast<int>(hash[i]) << endl;
+	}*/
+}

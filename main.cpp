@@ -4,6 +4,8 @@
 
 #include"Data.h"
 #include"PreprocessSingle.h"
+#include"PreprocessDouble.h"
+#include"PreprocessTriple.h"
 #include"PreprocessQuad.h"
 #include"PreprocessBase.h"
 #include"SimpleSW.h"
@@ -20,6 +22,7 @@ namespace {
 	Data* db = nullptr;
 	Data* q = nullptr;
 	int threshold = 0;
+	int gpu_block = 16;
 	string ofname;
 	string type = "quad";
 	bool cmp_flag = false;
@@ -66,6 +69,12 @@ void mode_select(){
 			PreprocessSW(*db, *q, PreprocessSingle(*db, *q, threshold), threshold);
 			cout << t.get_millsec() << endl;
 			t.start();
+			PreprocessSW(*db, *q, PreprocessDouble(*db, *q, threshold), threshold);
+			cout << t.get_millsec() << endl;
+			t.start();
+			PreprocessSW(*db, *q, PreprocessTriple(*db, *q, threshold), threshold);
+			cout << t.get_millsec() << endl;
+			t.start();
 			PreprocessSW(*db, *q, PreprocessQuad(*db, *q, threshold), threshold);
 			cout << t.get_millsec() << endl;
 			t.start();
@@ -75,25 +84,29 @@ void mode_select(){
 		// All of result at preprocess
 		else {
 			if (type_check("simple")) { 
-				SimpleSW sw(*db, *q, threshold);
+				SimpleSW sw(*db, *q, threshold, 8);
+				return;
 			}
-			else if(gpu_flag){
-				if (type_check("single")) {
-					PreprocessSWGPU(*db, *q, PreprocessSingle(*db, *q, threshold), threshold);
-				}
-				else {
-					PreprocessSWGPU(*db, *q, PreprocessQuad(*db, *q, threshold), threshold);
-				}
-
+			PreprocessBase* pre;
+			if(type_check("single")){
+				pre = new PreprocessSingle(*db, *q, threshold);
+			}
+			else if(type_check("double")){
+				pre = new PreprocessDouble(*db, *q, threshold);
+			}
+			else if(type_check("triple")){
+				pre = new PreprocessTriple(*db, *q, threshold);
+			}
+			else{	
+				pre = new PreprocessQuad(*db, *q, threshold);
+			}
+			if(gpu_flag){
+				PreprocessSWGPU(*db, *q, *pre, threshold);
 			}
 			else {
-				if (type_check("single")) {
-					PreprocessSW(*db, *q, PreprocessSingle(*db, *q, threshold), threshold);
-				}
-				else {
-					PreprocessSW(*db, *q, PreprocessQuad(*db, *q, threshold), threshold);
-				}
+				PreprocessSWGPU(*db, *q, *pre, threshold);
 			}
+			delete pre;
 		}
 	}
 	else{
