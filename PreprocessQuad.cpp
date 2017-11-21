@@ -21,20 +21,7 @@ namespace {
 }
 
 PreprocessQuad::PreprocessQuad(const Data& txt, const Data& ptn, const int threshold) {
-	if (txt.size() < ptn.size()) {
-		cout << "Reverse txt and ptn" << endl;
-		return;
-	}
-	cout << "PreprocessQuad start" << endl;
-	// Check the range
-	get_range(txt, ptn, threshold);
-	cout << "Block = " << mBlock << endl;
-	int newrange = ptn.size();
-	for (int i = 0; i < mBlock; ++i) {
-		newrange += mRange[i * 2 + 1] - mRange[i * 2] + 1;
-	}
-	cout << "New length is " << 100 * (double)(newrange) / (double)(txt.size()) << "%" << endl;
-	cout << "PreprocessQuad end" << endl;
+	process(txt, ptn, threshold, "Quad");
 }
 
 PreprocessQuad::PreprocessQuad(const Data& txt, const Data& ptn, const char* fname) {
@@ -60,14 +47,14 @@ PreprocessQuad::~PreprocessQuad() {
 
 void PreprocessQuad::check_score(const Data& txt, const Data& ptn, int* range) {
 	// Get hash, the length is ptn size
-	char hashT[Type]{ 0 };
-	char hashP[Type]{ 0 };
+	int hashT[Type]{ 0 };
+	int hashP[Type]{ 0 };
 	get_hash(txt, ptn.size(), hashT);
 	get_hash(ptn, ptn.size(), hashP);
 	int size = txt.size() - ptn.size();
 	int psize = ptn.size();
 	auto sum = [&](int i) {
-		return convert(txt[i]) * 64 + convert(txt[i + 1]) * 16 + convert(txt[i + 2]) * 4 + convert(txt[i + 3]);
+		return (convert(txt[i]) << 6) + (convert(txt[i + 1]) << 4) + (convert(txt[i + 2]) << 2) + convert(txt[i + 3]);
 	};
 	for (int i = 0; i < size; ++i) {
 		range[i] = get_score(hashT, hashP);
@@ -81,8 +68,8 @@ void PreprocessQuad::get_range(const Data& txt, const Data& ptn, const int thres
 	// Buffer
 	int* buffer = new int[txt.size() / ptn.size()];
 	// Get hash, the length is ptn size
-	char hashT[Type]{ 0 };
-	char hashP[Type]{ 0 };
+	int hashT[Type]{ 0 };
+	int hashP[Type]{ 0 };
 	get_hash(txt, ptn.size(), hashT);
 	get_hash(ptn, ptn.size(), hashP);
 	int size = txt.size() - ptn.size();
@@ -128,7 +115,7 @@ void PreprocessQuad::get_range(const Data& txt, const Data& ptn, const int thres
 	delete[] buffer;
 }
 
-int PreprocessQuad::get_score(const char* hash1, const char* hash2) const{
+int PreprocessQuad::get_score(const int* hash1, const int* hash2) const{
 	int score = 0;
 	for (int i = 0; i < Type; ++i) {
 		score += min(hash1[i], hash2[i]);
@@ -137,9 +124,9 @@ int PreprocessQuad::get_score(const char* hash1, const char* hash2) const{
 	else { return score + Quad; }
 }
 
-void PreprocessQuad::get_hash(const Data& data, int size, char* hash) const{
+void PreprocessQuad::get_hash(const Data& data, int size, int* hash) const{
 	for (int i = 0; i < size - Quad; ++i) {
-		++hash[convert(data[i]) * 64 + convert(data[i + 1]) * 16 + convert(data[i + 2]) * 4 + convert(data[i + 3])];
+		++hash[(convert(data[i]) << 6) + (convert(data[i + 1]) << 4) + (convert(data[i + 2]) << 2) + convert(data[i + 3])];
 	}
 	/*for (int i = 0; i < Type; ++i) {
 		cout << static_cast<int>(hash[i]) << endl;

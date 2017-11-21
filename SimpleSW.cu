@@ -10,6 +10,7 @@
 #include"Data.h"
 #include"Cost.h"
 
+
 // Lenght of each data
 __constant__ int gcT_size;
 __constant__ int gcP_size;
@@ -35,7 +36,8 @@ enum{
 
 using namespace std;
 
-SimpleSW::SimpleSW(const Data& db, const Data& q, int threshold){
+SimpleSW::SimpleSW(const Data& db, const Data& q, int threshold, int block_num) : mBlock{ block_num }
+{
 	cout << "Simple SW algorithm start" << endl;
 	// Sieze check
 	if(q.size() > 1024 || db.size() > 1024 * 1024 * 1024){
@@ -74,7 +76,7 @@ SimpleSW::~SimpleSW(){
 
 // Implementation 
 // No traceback
-__global__ void DP(char* dT_seq, int* dScore){
+__global__ void DP(char* dT_seq, int* dScore, int block_size){
 	// ThreadId = q point
 	int id = threadIdx.x;
 	// The acid in this thread
@@ -95,10 +97,13 @@ __global__ void DP(char* dT_seq, int* dScore){
 	Ep_1[id] = 0;
 	// Similar score
 	int sim = 0;
+	// Set start point
+	int start = (block_size - gcP_size) * blockIdx.x;
+	if(blockIdx.x != 0){ start -= gcP_size; }	// Take margin
 	// Culcurate elements
-	for(int t = -id; t < gcT_size; ++t){
+	for(int t = start - id; t < start + block_size; ++t){
 		// Control culcurate order
-		if(t<0){}
+		if(t<0 || t < start){}
 		// Get similar score
 		else{
 			// Compare acids
@@ -264,6 +269,8 @@ void SimpleSW::call_DP(const Data& db, const Data& q){
 	char* dT_seq;
 	cudaMalloc((void**)&dT_seq, sizeof(char)*db.size());
 	cudaMemcpy(dT_seq, db.data(), sizeof(char)*db.size(), cudaMemcpyHostToDevice);
+	// Set block size
+	int block_size = (db.size()/mBlock) + q.size();
 	// Set Score and point
 	int* dScore;
 	cudaMalloc((void**)&dScore, sizeof(int)*db.size());
@@ -271,7 +278,7 @@ void SimpleSW::call_DP(const Data& db, const Data& q){
 	for(int i=0;i<db.size();++i){init0[i]=0;}
 	cudaMemcpy(dScore, init0, sizeof(int)*db.size(), cudaMemcpyHostToDevice);
 	// Main process
-	DP<<<1,q.size()>>>(dT_seq, dScore);	
+	DP<<<mBlock,q.size()>>>(dT_seq, dScore, block_size);	
 	// Score and point copy
 	mScore = new int[db.size()];
 	cudaMemcpy(mScore, dScore, sizeof(int)*db.size(), cudaMemcpyDeviceToHost);
