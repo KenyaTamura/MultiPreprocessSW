@@ -4,20 +4,20 @@
 
 using namespace std;
 
-void PreprocessBase::process(const Data& txt, const Data& ptn, const int threshold, const char* id) {
-	if (txt.size() < ptn.size()) {
-		cout << "Reverse txt and ptn" << endl;
+void PreprocessBase::start(const Data& db, const Data& query, const int threshold, const char* id) {
+	if (db.size() < query.size()) {
+		cout << "Reverse db and query" << endl;
 		return;
 	}
 	cout << "Preprocess" << id << " start" << endl;
 	// Check the range
-	get_range(txt, ptn, threshold);
+	process(db, query, threshold);
 	cout << "Block = " << mBlock << endl;
-	int newrange = ptn.size();
+	int newrange = 0;
 	for (int i = 0; i < mBlock; ++i) {
-		newrange += mRange[i * 2 + 1] - mRange[i * 2] + 1;
+		newrange += mRange[i * 2 + 1] - mRange[i * 2] + 1 + query.size();
 	}
-	cout << "New length is " << 100 * (double)(newrange) / (double)(txt.size()) << "%" << endl;
+	cout << "New length is " << 100 * (double)(newrange) / (double)(db.size()) << "%" << endl;
 	cout << "Preprocess" << id << " end" << endl;
 }
 

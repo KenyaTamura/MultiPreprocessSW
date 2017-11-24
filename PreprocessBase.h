@@ -5,7 +5,7 @@ class Data;
 
 class PreprocessBase {
 public:
-	PreprocessBase() : mRange{ nullptr }, mBlock{ 0 } {};
+	PreprocessBase() : mRange{ nullptr }, mBlock{ 0 }, mTNum{ 0 } {};
 	virtual ~PreprocessBase() {};
 	int get(int i) const;
 	int* getAll() const;
@@ -15,10 +15,12 @@ protected:
 	int* mRange;
 	// The number of range blocks
 	int mBlock;
+	// The number of threads
+	int mTNum;
 	// First call
-	void process(const Data& txt, const Data& ptn, const int threshold, const char* id);
+	void start(const Data& db, const Data& query, const int threshold, const char* id);
 	// Main process
-	virtual void get_range(const Data& txt, const Data& ptn, const int threshold) {};
+	virtual void process(const Data& db, const Data& query, const int threshold) {};
 };
 
 

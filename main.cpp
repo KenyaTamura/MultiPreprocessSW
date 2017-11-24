@@ -22,7 +22,8 @@ namespace {
 	Data* db = nullptr;
 	Data* q = nullptr;
 	int threshold = 0;
-	int gpu_block = 16;
+	int thread = 8;
+	int gpu_block = 8;
 	string ofname;
 	string type = "quad";
 	bool cmp_flag = false;
@@ -57,6 +58,9 @@ void arg_branch(int argc, char* argv[]) {
 		if(cmp(i, "-time")){
 			if(++i < argc) { ofname = argv[i]; }
 		}
+		if(cmp(i, "-thread")){
+			if(++i < argc && atoi(argv[i]) > 0) { thread = atoi(argv[i]); }
+		}
 	}
 }
 
@@ -66,45 +70,45 @@ void mode_select(){
 		// Compare execution time
 		if (cmp_flag) {
 			Timer t;
-			PreprocessSW(*db, *q, PreprocessSingle(*db, *q, threshold), threshold);
+			PreprocessSWGPU(*db, *q, PreprocessSingle(*db, *q, threshold, thread), threshold);
 			cout << t.get_millsec() << endl;
 			t.start();
-			PreprocessSW(*db, *q, PreprocessDouble(*db, *q, threshold), threshold);
+			PreprocessSWGPU(*db, *q, PreprocessDouble(*db, *q, threshold, thread), threshold);
 			cout << t.get_millsec() << endl;
 			t.start();
-			PreprocessSW(*db, *q, PreprocessTriple(*db, *q, threshold), threshold);
+			PreprocessSWGPU(*db, *q, PreprocessTriple(*db, *q, threshold, thread), threshold);
 			cout << t.get_millsec() << endl;
 			t.start();
-			PreprocessSW(*db, *q, PreprocessQuad(*db, *q, threshold), threshold);
+			PreprocessSWGPU(*db, *q, PreprocessQuad(*db, *q, threshold, thread), threshold);
 			cout << t.get_millsec() << endl;
 			t.start();
-			SimpleSW(*db, *q, threshold);
+			SimpleSW(*db, *q, threshold, gpu_block);
 			cout << t.get_millsec() << endl;
 		}
 		// All of result at preprocess
 		else {
 			if (type_check("simple")) { 
-				SimpleSW sw(*db, *q, threshold, 8);
+				SimpleSW sw(*db, *q, threshold, gpu_block);
 				return;
 			}
 			PreprocessBase* pre;
 			if(type_check("single")){
-				pre = new PreprocessSingle(*db, *q, threshold);
+				pre = new PreprocessSingle(*db, *q, threshold, thread);
 			}
 			else if(type_check("double")){
-				pre = new PreprocessDouble(*db, *q, threshold);
+				pre = new PreprocessDouble(*db, *q, threshold, thread);
 			}
 			else if(type_check("triple")){
-				pre = new PreprocessTriple(*db, *q, threshold);
+				pre = new PreprocessTriple(*db, *q, threshold, thread);
 			}
 			else{	
-				pre = new PreprocessQuad(*db, *q, threshold);
+				pre = new PreprocessQuad(*db, *q, threshold, thread);
 			}
 			if(gpu_flag){
 				PreprocessSWGPU(*db, *q, *pre, threshold);
 			}
 			else {
-				PreprocessSWGPU(*db, *q, *pre, threshold);
+				PreprocessSW(*db, *q, *pre, threshold);
 			}
 			delete pre;
 		}
