@@ -7,6 +7,7 @@
 #include"PreprocessDouble.h"
 #include"PreprocessTriple.h"
 #include"PreprocessQuad.h"
+#include"PreprocessMerge.h"
 #include"PreprocessBase.h"
 #include"SimpleSW.h"
 #include"PreprocessSW.h"
@@ -92,6 +93,9 @@ void mode_select(){
 				return;
 			}
 			PreprocessBase* pre;
+			if(type_check("merge")){
+				type = PreprocessMerge()(*q, threshold);
+			}
 			if(type_check("single")){
 				pre = new PreprocessSingle(*db, *q, threshold, thread);
 			}
@@ -103,6 +107,10 @@ void mode_select(){
 			}
 			else{	
 				pre = new PreprocessQuad(*db, *q, threshold, thread);
+			}
+			if(pre->is_short()){
+				gpu_flag = false;
+				cout << "cpu\n";
 			}
 			if(gpu_flag){
 				PreprocessSWGPU(*db, *q, *pre, threshold);

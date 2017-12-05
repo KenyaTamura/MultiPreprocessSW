@@ -37,7 +37,7 @@ enum{
 using namespace std;
 
 PreprocessSWGPU::PreprocessSWGPU(const Data& db, const Data& q, const PreprocessBase& pre, int threshold){
-	cout << "Preprocess SW GPU ver start" << endl;
+	cout << "PreprocessSW GPU ver start" << endl;
 	// Sieze check
 	if(q.size() > 1024 || db.size() > 1024 * 1024 * 1024){
 		cout << "Too large size" << endl;
@@ -63,7 +63,7 @@ PreprocessSWGPU::PreprocessSWGPU(const Data& db, const Data& q, const Preprocess
 	// Dynamic Programing part by call_DP
 	call_DP(db, q, pre);
 	cout << "Max score is " << max_score() << ", max position is " << max_position() << endl; 
-	cout << "PreprocessSW SW GPU ver end" << endl;
+	cout << "PreprocessSW GPU ver end" << endl;
 }
 
 PreprocessSWGPU::~PreprocessSWGPU(){

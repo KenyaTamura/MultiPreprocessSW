@@ -9,6 +9,7 @@ void PreprocessBase::start(const Data& db, const Data& query, const int threshol
 		cout << "Reverse db and query" << endl;
 		return;
 	}
+	mBorder = 50000;
 	cout << "Preprocess" << id << " start" << endl;
 	// Check the range
 	process(db, query, threshold);
@@ -17,6 +18,8 @@ void PreprocessBase::start(const Data& db, const Data& query, const int threshol
 	for (int i = 0; i < mBlock; ++i) {
 		newrange += mRange[i * 2 + 1] - mRange[i * 2] + 1 + query.size();
 	}
+	if(newrange < mBorder) { mFlag = true; }
+	else { mFlag = false; }
 	cout << "New length is " << 100 * (double)(newrange) / (double)(db.size()) << "%" << endl;
 	cout << "Preprocess" << id << " end" << endl;
 }
@@ -38,4 +41,8 @@ int* PreprocessBase::getAll() const {
 
 int PreprocessBase::block() const {
 	return mBlock;
+}
+
+bool PreprocessBase::is_short() const {
+	return mFlag;
 }
