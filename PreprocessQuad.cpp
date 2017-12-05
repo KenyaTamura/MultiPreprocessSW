@@ -1,16 +1,16 @@
 #include"PreprocessQuad.h"
 #include"Data.h"
 
-#include<iostream>
 #include<algorithm>
-
-#include"Writer.h"
+#include<iostream>
+#include<thread>
+#include<vector>
 
 using namespace std;
 
 namespace {
-	constexpr int Quad = 3;
 	constexpr int Type = 256;
+	constexpr int Quad = 3;
 	auto convert = [](char acid) {
 		if (acid == 'A') return 0;
 		else if (acid == 'C') return 1;
@@ -20,23 +20,9 @@ namespace {
 	};
 }
 
-PreprocessQuad::PreprocessQuad(const Data& txt, const Data& ptn, const int threshold) {
-	process(txt, ptn, threshold, "Quad");
-}
-
-PreprocessQuad::PreprocessQuad(const Data& txt, const Data& ptn, const char* fname) {
-	if (txt.size() < ptn.size()) {
-		cout << "Reverse txt and ptn" << endl;
-		return;
-	}
-	cout << "PreprocessQuad start" << endl;
-	// The search range of origin
-	int* score = new int[txt.size() - ptn.size()];
-	// Check the range
-	check_score(txt, ptn, score);
-	Writer w;
-	w.writing_score(fname, score, txt.size() - ptn.size(), txt.size() / 100, 100);
-	cout << "PreprocessQuad end" << endl;
+PreprocessQuad::PreprocessQuad(const Data& db, const Data& query, const int threshold, const int thread_num) {
+	mTNum = thread_num;
+	start(db, query, threshold, "Quad");
 }
 
 PreprocessQuad::~PreprocessQuad() {
@@ -45,38 +31,51 @@ PreprocessQuad::~PreprocessQuad() {
 	}
 }
 
-void PreprocessQuad::check_score(const Data& txt, const Data& ptn, int* range) {
-	// Get hash, the length is ptn size
-	int hashT[Type]{ 0 };
-	int hashP[Type]{ 0 };
-	get_hash(txt, ptn.size(), hashT);
-	get_hash(ptn, ptn.size(), hashP);
-	int size = txt.size() - ptn.size();
-	int psize = ptn.size();
-	auto sum = [&](int i) {
-		return (convert(txt[i]) << 6) + (convert(txt[i + 1]) << 4) + (convert(txt[i + 2]) << 2) + convert(txt[i + 3]);
-	};
-	for (int i = 0; i < size; ++i) {
-		range[i] = get_score(hashT, hashP);
-		// Minus i and plus i + ptn.size()
-		--hashT[sum(i)];
-		++hashT[sum(i + psize - Quad)];
+void PreprocessQuad::process(const Data& db, const Data& query, const int threshold) {
+	cout << "Thread number is " << mTNum << endl;
+	vector<thread> thr(mTNum);
+	vector<int> blocks(mTNum);
+	vector<int*> buffer(mTNum);
+	int start = 0;
+	for(int i = 0; i < mTNum; ++i) {
+		// buffer size = (search length) / (base length)
+		buffer[i] = new int[db.size() / mTNum / query.size()];
+		int end = start + (db.size() / mTNum) + query.size();
+		if (i == mTNum - 1){
+			end = db.size();	
+		}
+		thr[i] = thread{ &PreprocessQuad::get_range, this,
+				ref(db), ref(query), threshold,
+				start, end,
+				ref(blocks[i]), ref(buffer[i])
+		};
+		start += db.size() / mTNum;
+	}
+	for(int i = 0; i < mTNum; ++i){
+		thr[i].join();
+		mBlock += blocks[i] / 2;
+	}
+	mRange = new int[mBlock * 2];
+	int count = 0;
+	for(int i = 0; i < mTNum; ++i) {
+		for(int j = 0; j < blocks[i]; ++j) {
+			mRange[count++] = buffer[i][j];
+		}
+		delete[] buffer[i];
 	}
 }
 
-void PreprocessQuad::get_range(const Data& txt, const Data& ptn, const int threshold) {
-	// Buffer
-	int* buffer = new int[txt.size() / ptn.size()];
-	// Get hash, the length is ptn size
-	int hashT[Type]{ 0 };
-	int hashP[Type]{ 0 };
-	get_hash(txt, ptn.size(), hashT);
-	get_hash(ptn, ptn.size(), hashP);
-	int size = txt.size() - ptn.size();
-	int psize = ptn.size();
-	int block = 0;
-	int score = get_score(hashT, hashP);
-	for (int i = 0; i < size; ++i) {
+void PreprocessQuad::get_range(const Data& db, const Data& query, const int threshold, int start, int end, int& block, int* buffer) {
+	// Get hash, the length is query size
+	int hashD[Type]{ 0 };
+	int hashQ[Type]{ 0 };
+	get_hash(db, query.size(), hashD, start);
+	get_hash(query, query.size(), hashQ, 0);
+	int size = end - query.size();
+	int qsize = query.size();
+	block = 0;
+	int score = get_score(hashD, hashQ);
+	for (int i = start; i < size; ++i) {
 		if (score >= threshold) {
 			if (block % 2 == 0) {
 				buffer[block++] = i;
@@ -87,35 +86,35 @@ void PreprocessQuad::get_range(const Data& txt, const Data& ptn, const int thres
 			}
 		}
 		else {
-			if (block % 2 != 0 && i - buffer[block] > psize) {
+			if (block % 2 == 1 && i - buffer[block] > qsize) {
 				++block;
 			}
 		}
-		// Minus hash i~i+3 and plus hash i + ptn.size()-3 ~ i+ptn.size()
-		int dec = (convert(txt[i]) << 6) + (convert(txt[i + 1]) << 4) + (convert(txt[i + 2]) << 2) + convert(txt[i + 3]);
-		int offset = i + psize;
-		int inc = (convert(txt[offset - 3]) << 6) + (convert(txt[offset - 2]) << 4) + (convert(txt[offset - 1]) << 2) + convert(txt[offset]);
-		if (hashT[dec] <= hashP[dec]) {
+		// Minus hash i~i+3 and plus hash i + query.size()-3 ~ i + query.size()
+		int dec = (convert(db[i]) << 6) + (convert(db[i + 1]) << 4) + (convert(db[i + 2]) << 2) + convert(db[i + 3]);
+		int offset = i + qsize;
+		int inc = (convert(db[offset - 3]) << 6) + (convert(db[offset - 2]) << 4) + (convert(db[offset - 1]) << 2) + convert(db[offset]);
+		if (hashD[dec] <= hashQ[dec]) {
 			--score;
 		}
-		--hashT[dec];
-		if (hashT[inc] < hashP[inc]) {
+		--hashD[dec];
+		if (hashD[inc] < hashQ[inc]) {
 			++score;
 		}
-		++hashT[inc];
+		++hashD[inc];
 	}
 	if (block % 2 == 1) {
 		++block;
 	}
-	mBlock = block / 2;
-	mRange = new int[block];
-	for (int i = 0; i < block; ++i) {
-		mRange[i] = buffer[i];
-	}
-	delete[] buffer;
 }
 
-int PreprocessQuad::get_score(const int* hash1, const int* hash2) const{
+void PreprocessQuad::get_hash(const Data& data, int size, int* hash, int start) const {
+	for (int i = 0; i < size - Quad; ++i) {
+		++hash[(convert(data[i + start]) << 6) + (convert(data[i + start + 1]) << 4) + (convert(data[i + start + 2]) << 2) + convert(data[i + start + 3])];
+	}
+}
+
+int PreprocessQuad::get_score(const int* hash1, const int* hash2) const {
 	int score = 0;
 	for (int i = 0; i < Type; ++i) {
 		score += min(hash1[i], hash2[i]);
@@ -124,11 +123,3 @@ int PreprocessQuad::get_score(const int* hash1, const int* hash2) const{
 	else { return score + Quad; }
 }
 
-void PreprocessQuad::get_hash(const Data& data, int size, int* hash) const{
-	for (int i = 0; i < size - Quad; ++i) {
-		++hash[(convert(data[i]) << 6) + (convert(data[i + 1]) << 4) + (convert(data[i + 2]) << 2) + convert(data[i + 3])];
-	}
-	/*for (int i = 0; i < Type; ++i) {
-		cout << static_cast<int>(hash[i]) << endl;
-	}*/
-}
