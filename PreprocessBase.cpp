@@ -9,7 +9,7 @@ void PreprocessBase::start(const Data& db, const Data& query, const int threshol
 		cout << "Reverse db and query" << endl;
 		return;
 	}
-	mBorder = 50000;
+	mBorder = 30000;
 	cout << "Preprocess" << id << " start" << endl;
 	// Check the range
 	process(db, query, threshold);

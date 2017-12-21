@@ -29,6 +29,7 @@ namespace {
 	string type = "quad";
 	bool cmp_flag = false;
 	bool gpu_flag = true;
+	bool pre_flag = false;
 }
 
 void arg_branch(int argc, char* argv[]) {
@@ -55,6 +56,9 @@ void arg_branch(int argc, char* argv[]) {
 		}
 		if (cmp(i, "-cpu")){
 			gpu_flag = false;
+		}
+		if (cmp(i, "-pre")){
+			pre_flag = true;
 		}
 		if(cmp(i, "-time")){
 			if(++i < argc) { ofname = argv[i]; }
@@ -110,9 +114,11 @@ void mode_select(){
 			}
 			if(pre->is_short()){
 				gpu_flag = false;
-				cout << "cpu\n";
 			}
-			if(gpu_flag){
+			if(pre_flag){
+				// Only preprocess
+			}
+			else if(gpu_flag){
 				PreprocessSWGPU(*db, *q, *pre, threshold);
 			}
 			else {
@@ -127,8 +133,9 @@ void mode_select(){
 }
 
 int main(int argc, char* argv[]) {
-	arg_branch(argc, argv);
 	Timer t;
+	arg_branch(argc, argv);
+//	Timer t;
 	mode_select();
 	cout << t.get_millsec() << endl;
 	if(!ofname.empty()){

@@ -16,6 +16,7 @@ PreprocessSW::PreprocessSW(const Data& db, const Data& query, const PreprocessBa
 		DP(db, query, pre.get(i * 2), pre.get(i * 2 + 1) + query.size());
 	}
 	cout << "Max score is " << max_score() << ", max position is " << max_position() << endl;
+	traceback(db, query);
 	cout << "PreprocessSW end" << endl;
 }
 
